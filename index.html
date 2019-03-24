@@ -93,15 +93,12 @@
       componentDidMount() {
         var resizer = document.getElementById('resizer');
         resizer.addEventListener('mousedown', this.initResize, false);
-        resizer.addEventListener('touchstart', this.initResize, false);
         this.getLabels();
       }
 
       initResize(e) {
         window.addEventListener('mousemove', this.resize, false);
         window.addEventListener('mouseup', this.stopResize, false);
-        window.addEventListener('touchmove', this.resize, false);
-        window.addEventListener('touchend', this.stopResize, false);
       }
 
       resize(e) {
@@ -136,8 +133,6 @@
       stopResize(e) {
         window.removeEventListener('mousemove', this.resize, false);
         window.removeEventListener('mouseup', this.stopResize, false);
-        window.removeEventListener('touchmove', this.resize, false);
-        window.removeEventListener('touchend', this.stopResize, false);
         let path = this.path;
         let width = this.scrollWidth;
         this.setState({ path, width });
