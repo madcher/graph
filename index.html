@@ -93,6 +93,7 @@
       componentDidMount() {
         var resizer = document.getElementById('resizer');
         resizer.addEventListener('mousedown', this.initResize, false);
+        resizer.addEventListener('touchstart', this.initResize, false);
         this.getLabels();
       }
 
