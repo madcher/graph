@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph beta</title>
+  <script src="script/babel.js"></script>
+  <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
+  <link rel="stylesheet" type="text/css" href="style.css">
+  <script src="data.js"></script>
+</head>
+
+<body>
+  <div class="container" id="container">
+  </div>
+
+  <script type="text/babel">
+    // Maxim Rameev 23-03-2019
+    // graph for telegram chalenge
+
+    const fullGraphFollow = makePath(makeFullGraph(dataForGraph, 400), 1);
+    const fullGraphUnfollow = makePath(makeFullGraph(dataForGraph, 400), 2);
+
+    // shift tooltip near borders
+    function getTooltipX(x) {
+      let newX = x;
+      if (x >= 0 && x <= 13) {
+        newX = 13;
+      }
+      if (x >= 87) {
+        newX = 87;
+      }
+      return newX
+    }
+
+    // svg path for bottom graph
+    function makeFullGraph(data, width) {
+      let distance = width / data.length;
+      let graph = data.map((el, index) => {
+        el.x = distance * index;
+        return el;
+      })
+      return graph;
+    }
+
+    // get state and retrun path
+    function makePath(state, num) {
+      const x = state[0].x;
+      const y = (num === 1) ? state[0].y1 : state[0].y2;
+      let path = `M${x}, ${y}`;
+      if (state.length < 2) {
+        return path;
+      }
+
+      for (let i = 1; i < state.length; i++) {
+        const x = state[i].x;
+        const y = (num === 1) ? state[i].y1 : state[i].y2;
+        path += ` L${x}, ${y}`;
+      }
+      return path;
+    }
+
+    class App extends React.Component {
+      constructor(props) {
+        super(props);
+        this.state = {
+          path: this.getNewCoordinates(props.data, 400, 300, 100),
+          grap1show: true,
+          grap2show: true,
+          width: 300,
+          shift: 300,
+          to: 100
+        };
+        // full graph width
+        this.fullWidth = 400;
+        this.visiblePointsNum = 0;
+        // main grath width
+        this.width = 100;
+        this.scrollWidth = 100;
+        this.path = this.getNewCoordinates(props.data, 400, 300, 100);
+        this.initResize = this.initResize.bind(this);
+        this.resize = this.resize.bind(this);
+        this.stopResize = this.stopResize.bind(this);
+        this.hoverShow = this.hoverShow.bind(this);
+        this.hoverHide = this.hoverHide.bind(this);
+        this.getNewCoordinates = this.getNewCoordinates.bind(this);
+        this.getLabels = this.getLabels.bind(this);
+        this.hideGraph = this.hideGraph.bind(this);
+      }
+
+      componentDidMount() {
+        var resizer = document.getElementById('resizer');
+        resizer.addEventListener('mousedown', this.initResize, false);
+        this.getLabels();
+      }
+
+      initResize(e) {
+        window.addEventListener('mousemove', this.resize, false);
+        window.addEventListener('mouseup', this.stopResize, false);
+      }
+
+      resize(e) {
+        const rect = element.getBoundingClientRect();
+        const scrollWidth = e.clientX - rect.left > 10 ? e.clientX - rect.left : 10;
+
+        let path = this.getNewCoordinates(this.state.path, this.fullWidth, scrollWidth, this.width);
+
+        // scrollig => direct update (setState is laggy)
+        // graph updeate
+        if (this.state.grap1show) {
+          document.getElementById('follow').setAttribute('d', makePath(path, 1));
+        }
+        if (this.state.grap2show) {
+          document.getElementById('unfollow').setAttribute('d', makePath(path, 2));
+        }
+        // scroll box update
+        document.getElementById('element').style.width = scrollWidth + 'px';
+
+        // x-labels update
+        let labels = document.getElementsByClassName('textLabels');
+        for (let j = 0; j < labels.length; j++) {
+          labels[j].innerHTML = '.'
+          labels[j].setAttribute('x', path[j].x)
+        }
+        this.getLabels();
+        // update state
+        this.scrollWidth = scrollWidth;
+        this.path = path;
+      }
+
+      stopResize(e) {
+        window.removeEventListener('mousemove', this.resize, false);
+        window.removeEventListener('mouseup', this.stopResize, false);
+        let path = this.path;
+        let width = this.scrollWidth;
+        this.setState({ path, width });
+      }
+
+      getLabels() {
+        let labels = document.getElementsByClassName('textLabels');
+        // distanse between points
+        const distanse = this.width / this.visiblePointsNum;
+        let count = 0;
+        for (let j = 0; j < labels.length; j++) {
+          count += distanse;
+          if (count >= 20) {
+            labels[j].innerHTML = this.props.data[j].label;
+            count = 0;
+          } else {
+            labels[j].innerHTML = '';
+          }
+        }
+      }
+
+      // initial path for top graph
+      getNewCoordinates(data, fullWidth, scrollWidth, width) {
+        // visible part of graph
+        const pointsNumber = (fullWidth - (scrollWidth - 10));
+        // koefficient
+        const multiplier = pointsNumber / width > 0 ? pointsNumber / width : 0.001;
+
+        const initDist = fullWidth / data.length;
+        const distanse = initDist / multiplier;
+
+        // visible elements
+        this.visiblePointsNum = width / distanse;
+
+        let newPath = data;
+        newPath[data.length - 1].x = width;
+        for (let i = newPath.length - 2; i >= 0; i--) {
+          newPath[i].x = newPath[i + 1].x - distanse;
+        }
+        return newPath;
+      }
+
+      hoverShow(e) {
+        const index = e.target.getAttribute('data');
+        const path = this.state.path;
+        path[index].showtooltip = true;
+        this.setState({ path });
+      }
+
+      hoverHide(e) {
+        const index = e.target.getAttribute('data');
+        const path = this.state.path;
+        path[index].showtooltip = false;
+        this.setState({ path });
+      }
+
+      hideGraph(e) {
+        const index = e.target.getAttribute('data');
+        if (index == 1) {
+          const grap1show = !this.state.grap1show;
+          this.setState({ grap1show });
+          return;
+        }
+        const grap2show = !this.state.grap2show;
+        this.setState({ grap2show });
+        return;
+      }
+
+      render() {
+        // todo: change all classes to BEM
+        return (
+          <div>
+            <header>
+              Followers
+            </header>
+            <svg viewBox="0 0 100 110" className="svg-1">
+              {
+                // graph axis
+                graphLabels.map((axes, index) => {
+                  return (
+                    <path
+                    strokeWidth="0.1"
+                    d={`M10,${axes.y} L100,${axes.y}`}
+                    className="axis"
+                    key={`M10,${axes.y} L100,${axes.y}`}
+                    />
+                  )
+                })
+              }
+
+              {
+                // graph labels
+                this.state.path.map((label, index) => {
+                  // init logic for labels
+                  return (
+                    <text
+                      x={label.x}
+                      y="102"
+                      fontFamily="sans-serif"
+                      fontSize="4px"
+                      textAnchor="middle"
+                      fill="#b4c4cc"
+                      key={index}
+                      className="textLabels"
+                    >
+                      I
+                    </text>
+                  )
+                })
+              }
+
+              {
+                this.state.grap1show &&
+                <path strokeWidth="1" d={makePath(this.state.path, 1)} className="follow" id="follow"/>
+              }
+              {
+                this.state.grap2show &&
+                  <path strokeWidth="1" d={makePath(this.state.path, 2)} className="unfollow" id="unfollow"/>
+              }
+
+
+              {
+                // labels for graph axis
+                graphLabels.map((label, index) => {
+                  return (
+                    <text
+                      x="5"
+                      y={label.y + 1}
+                      fontFamily="sans-serif"
+                      fontSize="4px"
+                      textAnchor="middle"
+                      fill="#b4c4cc"
+                      key={`labels${index}`}
+                    >
+                      {label.label}
+                    </text>
+                  )
+                })
+              }
+              {
+                // tooltip
+                this.state.path.map((tooltip, index) => {
+                  const tooltipX = getTooltipX(tooltip.x);
+                  // todo: make separate component
+                  return (
+                      tooltip.showtooltip == true &&
+                        <g key={"rect" + index}>
+                          <path
+                            strokeWidth="1"
+                            d={`M${tooltip.x},10 L${tooltip.x},97`}
+                            className="stripe"
+                          />
+                          <circle
+                            cx={tooltip.x}
+                            cy={tooltip.y1}
+                            r="1.5"
+                            stroke="#3DC23F"
+                            strokeWidth="1"
+                            fill="white"
+                          />
+                          <circle
+                            cx={tooltip.x}
+                            cy={tooltip.y2}
+                            r="1.5"
+                            stroke="#F34C44"
+                            strokeWidth="1"
+                            fill="white"
+                          />
+                          <rect
+                            x={tooltipX - 13}
+                            y="5"
+                            rx="2"
+                            ry="2"
+                            height="20"
+                            width="26"
+                            fill="#00cc00"
+                            className="tooltip"
+                          />
+                          <text
+                            x={tooltipX}
+                            y="10"
+                            fontFamily="sans-serif"
+                            fontSize="4px"
+                            textAnchor="middle"
+                            fill="black"
+                            className="textLabels"
+                          >
+                            {tooltip.label}
+                          </text>
+                          <text
+                            x={tooltipX - 5}
+                            y="17"
+                            fill="#3DC23F"
+                            className = "tooltip-text"
+                          >
+                            {tooltip.inity1}
+                          </text>
+                          <text
+                            x={tooltipX + 5}
+                            y="17"
+                            className = "tooltip-text"
+                            fill="#F34C44"
+                          >
+                            {tooltip.inity2}
+                          </text>
+                          <text
+                            x={tooltipX - 6}
+                            y="22"
+                            textAnchor="middle"
+                            fontSize="4px"
+                            fill="#3DC23F"
+                          >
+                            Joined
+                          </text>
+                          <text
+                            x={tooltipX + 6}
+                            y="22"
+                            textAnchor="middle"
+                            fontSize="4px"
+                            fill="#F34C44"
+                          >
+                            Left
+                          </text>
+                        </g>
+                  )
+                })
+              }
+              {
+                // containers for tooltips
+                this.state.path.map((el, ind) => {
+                  return (
+                    <path
+                      strokeWidth="3" d={`M${el.x},0 L${el.x},100`}
+                      key={ind}
+                      className="point"
+                      onMouseOver={this.hoverShow}
+                      onMouseOut={this.hoverHide}
+                      data={ind}
+                    />
+                  );
+                })
+              }
+            </svg>
+            <div className="slider" id="slider">
+              <div className="fullgraph">
+                <svg viewBox="0 0 400 100" className="svg-1">
+                <path
+                  strokeWidth="2"
+                  d={this.props.fullGraphFollow}
+                  className="follow"
+                />
+                <path
+                  strokeWidth="2"
+                  d={this.props.fullGraphUnfollow}
+                  className="unfollow"
+                />
+                </svg>
+              </div>
+              <div id="element" style={{width: this.state.width + 'px'}}>
+                <div className="resizer" id="resizer">
+                </div>
+              </div>
+            </div>
+            <div className="buttons">
+              <button className = "buttons__btn" onClick={this.hideGraph} data="1">
+              <svg align="absmiddle" className="checkbox" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 32 32" enableBackground="new 0 0 32 32" width="30px" height="30px">
+                <circle className="ok circle" fill="#28a745" stroke="#28a745" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12"/>
+                <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15 "/>
+              </svg>
+
+                Joined
+              </button>
+              <button className="buttons__btn" onClick={this.hideGraph} data="2">
+                <svg align="absmiddle" className="checkbox" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 32 32" enableBackground="new 0 0 32 32" width="30px" height="30px">
+                  <circle className="ok circle" fill="#F34C44" stroke="#F34C44" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12"/>
+                  <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15 "/>
+                </svg>
+                Left
+              </button>
+            </div>
+          </div>
+        );
+      }
+    }
+
+    ReactDOM.render(
+      <App
+        data={dataForGraph}
+        fullGraphFollow = {fullGraphFollow}
+        fullGraphUnfollow = {fullGraphUnfollow}
+        graphLabels = {graphLabels}
+      />, document.getElementById('container'));
+  </script>
+
+</body>
+</html>
