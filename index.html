@@ -88,24 +88,26 @@
         this.getNewCoordinates = this.getNewCoordinates.bind(this);
         this.getLabels = this.getLabels.bind(this);
         this.hideGraph = this.hideGraph.bind(this);
+        this.updateGraph = this.updateGraph.bind(this);
       }
 
       componentDidMount() {
         var resizer = document.getElementById('resizer');
         resizer.addEventListener('mousedown', this.initResize, false);
+        resizer.addEventListener('touchstart', this.initResize, false);
         this.getLabels();
       }
 
       initResize(e) {
         window.addEventListener('mousemove', this.resize, false);
+        window.addEventListener('touchmove', this.resize, false);
         window.addEventListener('mouseup', this.stopResize, false);
+        window.addEventListener('touchend', this.stopResize, false);
       }
 
-      resize(e) {
-        const rect = element.getBoundingClientRect();
-        const scrollWidth = e.clientX - rect.left > 10 ? e.clientX - rect.left : 10;
 
-        let path = this.getNewCoordinates(this.state.path, this.fullWidth, scrollWidth, this.width);
+      updateGraph(newWidth) {
+        let path = this.getNewCoordinates(this.state.path, this.fullWidth, newWidth, this.width);
 
         // scrollig => direct update (setState is laggy)
         // graph updeate
@@ -116,7 +118,7 @@
           document.getElementById('unfollow').setAttribute('d', makePath(path, 2));
         }
         // scroll box update
-        document.getElementById('element').style.width = scrollWidth + 'px';
+        document.getElementById('element').style.width = newWidth + 'px';
 
         // x-labels update
         let labels = document.getElementsByClassName('textLabels');
@@ -126,13 +128,35 @@
         }
         this.getLabels();
         // update state
-        this.scrollWidth = scrollWidth;
+        this.scrollWidth = newWidth;
         this.path = path;
+      }
+
+      resize(e) {
+        // resize for mobile
+        if (e.targetTouches) {
+          let posX = 10;
+          posX = e.targetTouches[0].clientX;
+          if (posX < 10) {
+            posX = 10;
+          }
+          if (posX > 400) {
+            posX = 400;
+          }
+          this.updateGraph(posX);
+          return;
+        }
+        const rect = element.getBoundingClientRect();
+        const scrollWidth = e.clientX - rect.left > 10 ? e.clientX - rect.left : 10;
+        this.updateGraph(scrollWidth);
+
       }
 
       stopResize(e) {
         window.removeEventListener('mousemove', this.resize, false);
+        window.removeEventListener('touchmove', this.resize, false);
         window.removeEventListener('mouseup', this.stopResize, false);
+        window.removeEventListener('touchend', this.stopResize, false);
         let path = this.path;
         let width = this.scrollWidth;
         this.setState({ path, width });
