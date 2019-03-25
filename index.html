@@ -190,8 +190,8 @@
       }
 
       hideGraph(e) {
-        const index = e.target.getAttribute('data');
-        const color = e.target.getAttribute('color');
+        const index = e.currentTarget.getAttribute('data');
+        const color = e.currentTarget.getAttribute('color');
         if (index == 1) {
           const grap1show = !this.state.grap1show;
           document.getElementById(color).style.fill =  !this.state.grap1show ? color : "white";
