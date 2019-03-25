@@ -19,6 +19,8 @@
   <script type="text/babel">
     // Maxim Rameev 23-03-2019
     // graph for telegram chalenge
+    // mobile support
+    // todo: make adaptive;
 
     const fullGraphFollow = makePath(makeFullGraph(dataForGraph, 400), 1);
     const fullGraphUnfollow = makePath(makeFullGraph(dataForGraph, 400), 2);
@@ -66,18 +68,20 @@
       constructor(props) {
         super(props);
         this.state = {
+          // width of full graph, width of slider div, width of svg viewbox
           path: this.getNewCoordinates(props.data, 400, 300, 100),
+          // show follow and unfollow graphs or not
           grap1show: true,
           grap2show: true,
-          width: 300,
-          shift: 300,
-          to: 100
+          // width of slider div
+          width: 300
         };
         // full graph width
         this.fullWidth = 400;
         this.visiblePointsNum = 0;
         // main grath width
         this.width = 100;
+        // width of slider div
         this.scrollWidth = 100;
         this.path = this.getNewCoordinates(props.data, 400, 300, 100);
         this.initResize = this.initResize.bind(this);
@@ -133,23 +137,17 @@
       }
 
       resize(e) {
-        // resize for mobile
-        if (e.targetTouches) {
-          let posX = 10;
-          posX = e.targetTouches[0].clientX;
-          if (posX < 10) {
-            posX = 10;
-          }
-          if (posX > 400) {
-            posX = 400;
-          }
-          this.updateGraph(posX);
-          return;
-        }
         const rect = element.getBoundingClientRect();
-        const scrollWidth = e.clientX - rect.left > 10 ? e.clientX - rect.left : 10;
+        let scrollWidth;
+        if (e.targetTouches) {
+          // resize for mobile
+          e.preventDefault();
+          scrollWidth = e.targetTouches[0].clientX - rect.left > 10 ? e.targetTouches[0].clientX - rect.left : 10;
+        } else {
+          // desktop
+          scrollWidth = e.clientX - rect.left > 10 ? e.clientX - rect.left : 10;
+        }
         this.updateGraph(scrollWidth);
-
       }
 
       stopResize(e) {
@@ -274,11 +272,11 @@
                 this.state.grap1show &&
                 <path strokeWidth="1" d={makePath(this.state.path, 1)} className="follow" id="follow"/>
               }
+              
               {
                 this.state.grap2show &&
                   <path strokeWidth="1" d={makePath(this.state.path, 2)} className="unfollow" id="unfollow"/>
               }
-
 
               {
                 // labels for graph axis
