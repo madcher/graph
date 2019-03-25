@@ -56,19 +56,25 @@ svg path {
   stroke-dashoffset: 0;
 }
 
-.ok.circle {
-  animation: ok-dash 2s ease-in;
-}
-.ok.check {
+.ok .check {
   stroke-dashoffset: 900
 }
-@keyframes ok-dash {
-  0% {
-  }
-  100% {
-    fill: white;
-  }
+
+.circle {
+  -webkit-transition: fill .6s ease;
+  -moz-transition: fill .6s ease;
+  -o-transition: fill .6s ease;
+  transition: fill .6s ease;  
 }
+
+.circle__follow {
+  fill: #28a745;
+}
+
+.circle__unfollow {
+  fill: #F34C44;
+}
+
 .container {
     width: 400px;
     height: 400px;
