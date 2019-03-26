@@ -22,6 +22,7 @@
     // mobile support
     // todo: make adaptive;
 
+    // init graph
     const fullGraphFollow = makePath(makeFullGraph(dataForGraph, 400), 1);
     const fullGraphUnfollow = makePath(makeFullGraph(dataForGraph, 400), 2);
 
@@ -64,7 +65,7 @@
       return path;
     }
 
-    class App extends React.Component {
+    class Graph extends React.Component {
       constructor(props) {
         super(props);
         this.state = {
@@ -96,7 +97,7 @@
       }
 
       componentDidMount() {
-        var resizer = document.getElementById('resizer');
+        var resizer = this.refs.resizer;
         resizer.addEventListener('mousedown', this.initResize, false);
         resizer.addEventListener('touchstart', this.initResize, false);
         this.getLabels();
@@ -114,18 +115,18 @@
         let path = this.getNewCoordinates(this.state.path, this.fullWidth, newWidth, this.width);
 
         // scrollig => direct update (setState is laggy)
-        // graph updeate
+        // graph update
         if (this.state.grap1show) {
-          document.getElementById('follow').setAttribute('d', makePath(path, 1));
+          this.refs.follow.setAttribute('d', makePath(path, 1));
         }
         if (this.state.grap2show) {
-          document.getElementById('unfollow').setAttribute('d', makePath(path, 2));
+          this.refs.unfollow.setAttribute('d', makePath(path, 2));
         }
         // scroll box update
-        document.getElementById('element').style.width = newWidth + 'px';
+        this.refs.scrollbox.style.width = newWidth + 'px';
 
         // x-labels update
-        let labels = document.getElementsByClassName('textLabels');
+        let labels = document.getElementsByClassName(this.props.labelsClass);
         for (let j = 0; j < labels.length; j++) {
           labels[j].innerHTML = '.'
           labels[j].setAttribute('x', path[j].x)
@@ -137,11 +138,13 @@
       }
 
       resize(e) {
-        const rect = element.getBoundingClientRect();
+        e.preventDefault();
+        // get borders of slider div
+        const rect = this.refs.scrollbox.getBoundingClientRect();
         let scrollWidth;
+        // get position inside slider div
         if (e.targetTouches) {
           // resize for mobile
-          e.preventDefault();
           scrollWidth = e.targetTouches[0].clientX - rect.left > 10 ? e.targetTouches[0].clientX - rect.left : 10;
         } else {
           // desktop
@@ -155,22 +158,25 @@
         window.removeEventListener('touchmove', this.resize, false);
         window.removeEventListener('mouseup', this.stopResize, false);
         window.removeEventListener('touchend', this.stopResize, false);
+        // update our state
         let path = this.path;
         let width = this.scrollWidth;
         this.setState({ path, width });
       }
 
       getLabels() {
-        let labels = document.getElementsByClassName('textLabels');
+        let labels = document.getElementsByClassName(this.props.labelsClass);
         // distanse between points
         const distanse = this.width / this.visiblePointsNum;
         let count = 0;
+        // set label every 20 points
         for (let j = 0; j < labels.length; j++) {
           count += distanse;
           if (count >= 20) {
             labels[j].innerHTML = this.props.data[j].label;
             count = 0;
           } else {
+            // space between labels
             labels[j].innerHTML = '';
           }
         }
@@ -183,7 +189,9 @@
         // koefficient
         const multiplier = pointsNumber / width > 0 ? pointsNumber / width : 0.001;
 
+        // initial distance between 2 points in graph
         const initDist = fullWidth / data.length;
+        // change initial distance with miltiplier
         const distanse = initDist / multiplier;
 
         // visible elements
@@ -216,23 +224,35 @@
         const color = e.currentTarget.getAttribute('color');
         if (index == 1) {
           const grap1show = !this.state.grap1show;
-          document.getElementById(color).style.fill =  !this.state.grap1show ? color : "white";
+          this.refs[color].style.fill =  !this.state.grap1show ? color : this.props.background;
           this.setState({ grap1show });
           return;
         }
         const grap2show = !this.state.grap2show;
-        document.getElementById(color).style.fill =  !this.state.grap2show ? color : "white";
+        this.refs[color].style.fill =  !this.state.grap2show ? color : this.props.background;
         this.setState({ grap2show });
       }
 
       render() {
         // todo: change all classes to BEM
         return (
-          <div style={{ width: '100%', maxWidth: '400px' }}>
+          <div
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              background: this.props.background,
+              color: this.props.color,
+              margin: '0 auto'
+            }}
+          >
             <header>
               Followers
             </header>
-            <svg viewBox={`0 0 ${this.props.mainGraphWidth} ${this.props.mainGraphWidth + 10}`} className="svg-1">
+            <svg
+              viewBox={`0 0 ${this.props.mainGraphWidth} ${this.props.mainGraphWidth + 10}`}
+              className="svg-1"
+              style={{background: this.props.background}}
+            >
               {
                 // graph axis
                 graphLabels.map((axes, index) => {
@@ -260,7 +280,7 @@
                       textAnchor="middle"
                       fill="#b4c4cc"
                       key={index}
-                      className="textLabels"
+                      className={this.props.labelsClass}
                     >
                       I
                     </text>
@@ -270,12 +290,12 @@
 
               {
                 this.state.grap1show &&
-                <path strokeWidth="1" d={makePath(this.state.path, 1)} className="follow" id="follow"/>
+                <path strokeWidth="1" d={makePath(this.state.path, 1)} className="follow" ref="follow"/>
               }
 
               {
                 this.state.grap2show &&
-                  <path strokeWidth="1" d={makePath(this.state.path, 2)} className="unfollow" id="unfollow"/>
+                  <path strokeWidth="1" d={makePath(this.state.path, 2)} className="unfollow" ref="unfollow"/>
               }
 
               {
@@ -332,7 +352,7 @@
                             ry="2"
                             height="20"
                             width="26"
-                            fill="#00cc00"
+                            fill={this.props.background}
                             className="tooltip"
                           />
                           <text
@@ -341,8 +361,7 @@
                             fontFamily="sans-serif"
                             fontSize="4px"
                             textAnchor="middle"
-                            fill="black"
-                            className="textLabels"
+                            fill={this.props.color}
                           >
                             {tooltip.label}
                           </text>
@@ -404,7 +423,11 @@
             </svg>
             <div className="slider" id="slider">
               <div className="fullgraph">
-                <svg viewBox={`0 0 ${this.props.fullGraphWidth} ${this.props.mainGraphWidth}`} className="svg-1">
+                <svg
+                  viewBox={`0 0 ${this.props.fullGraphWidth} ${this.props.mainGraphWidth}`}
+                  className="svg-1"
+                  style={{background: this.props.background}}
+                >
                 <path
                   strokeWidth="2"
                   d={this.props.fullGraphFollow}
@@ -417,23 +440,54 @@
                 />
                 </svg>
               </div>
-              <div id="element" style={{width: this.state.width + 'px'}}>
-                <div className="resizer" id="resizer">
+              <div ref="scrollbox" className="element" style={{width: this.state.width + 'px'}}>
+                <div className="resizer" ref="resizer">
                 </div>
               </div>
             </div>
             <div className="buttons">
-              <button className = "buttons__btn" onClick={this.hideGraph} data="1" color="#28a745">
-              <svg align="absmiddle" className="checkbox" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 32 32" enableBackground="new 0 0 32 32" width="30px" height="30px">
-                <circle className="ok circle circle__follow" stroke="#28a745" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" id="#28a745" fill="#28a745" />
+              <button
+                className = "buttons__btn"
+                onClick={this.hideGraph}
+                data="1"
+                color="#28a745"
+                style={{ color: this.props.color, background: this.props.background }}
+              >
+              <svg
+                align="absmiddle"
+                className="checkbox"
+                version="1.1"
+                x="0px" y="0px"
+                viewBox="0 0 32 32"
+                enableBackground="new 0 0 32 32"
+                width="30px" height="30px"
+                style={{background: this.props.background}}
+              >
+                <circle className="ok circle circle__follow" stroke="#28a745" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref="#28a745" fill="#28a745" />
                 <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15 "/>
               </svg>
 
                 Joined
               </button>
-              <button className="buttons__btn" onClick={this.hideGraph} data="2" color="#F34C44">
-                <svg align="absmiddle" className="checkbox" version="1.1" id="Layer_1" x="0px" y="0px" viewBox="0 0 32 32" enableBackground="new 0 0 32 32" width="30px" height="30px">
-                  <circle className="ok circle circle__unfollow" stroke="#F34C44" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" id="#F34C44" fill="#F34C44"/>
+              <button
+                className="buttons__btn"
+                onClick={this.hideGraph}
+                data="2"
+                color="#F34C44"
+                style={{ color: this.props.color, background: this.props.background }}
+              >
+                <svg
+                  align="absmiddle"
+                  className="checkbox"
+                  version="1.1"
+                  x="0px" y="0px"
+                  viewBox="0 0 32 32"
+                  enableBackground="new 0 0 32 32"
+                  width="30px"
+                  height="30px"
+                  style={{background: this.props.background}}
+                >
+                  <circle className="ok circle circle__unfollow" stroke="#F34C44" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref="#F34C44" fill="#F34C44"/>
                   <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15" />
                 </svg>
                 Left
@@ -444,16 +498,43 @@
       }
     }
 
-    ReactDOM.render(
-      <App
-        data={dataForGraph}
-        fullGraphFollow = {fullGraphFollow}
-        fullGraphUnfollow = {fullGraphUnfollow}
-        graphLabels = {graphLabels}
-        fullGraphWidth = {400}
-        mainGraphWidth = {100}
-        sliderWidth = {300}
-      />, document.getElementById('container'));
+// new data for second graph
+var dataForGraph2 = JSON.parse(JSON.stringify( dataForGraph));
+
+const App = (
+    <div>
+      <div style={{ paddingBottom: "20px"}}>
+        <Graph
+          data={dataForGraph}
+          fullGraphFollow = {fullGraphFollow}
+          fullGraphUnfollow = {fullGraphUnfollow}
+          graphLabels = {graphLabels}
+          fullGraphWidth = {400}
+          mainGraphWidth = {100}
+          sliderWidth = {300}
+          color="black"
+          background="white"
+          labelsClass="textLabels"
+        />
+      </div>
+      <div style={{ background: "#2d3c52", width: "100%", paddingTop: "20px", paddingBottom: "20px"}}>
+        <Graph
+          data={dataForGraph2}
+          fullGraphFollow = {fullGraphFollow}
+          fullGraphUnfollow = {fullGraphUnfollow}
+          graphLabels = {graphLabels}
+          fullGraphWidth = {400}
+          mainGraphWidth = {100}
+          sliderWidth = {300}
+          color="white"
+          background="#2d3c52"
+          labelsClass="textLabels2"
+        />
+      </div>
+    </div>
+);
+
+    ReactDOM.render(App, document.getElementById('container'));
   </script>
 
 </body>
