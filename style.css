@@ -52,15 +52,6 @@ svg path {
   vertical-align:middle
 }
 
-.ok {
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 0;
-}
-
-.ok .check {
-  stroke-dashoffset: 900
-}
-
 .circle {
   -webkit-transition: fill .6s ease;
   -moz-transition: fill .6s ease;
@@ -78,9 +69,19 @@ svg path {
 
 .container {
     width: 400px;
-    height: 400px;
     text-align: center;
 }
+
+.ok {
+  stroke-dasharray: 1000;
+  stroke-dashoffset: 0;
+}
+
+.ok .check {
+  stroke-dashoffset: 900
+}
+
+
 .point {
     stroke: gray;
     stroke-opacity: 0;
@@ -102,7 +103,8 @@ svg path {
 }
 .fullgraph {
     position: absolute;
-    width: 400px;
+    width: 100%;
+    max-width: 400px;
     height: 100px;
 }
 .resizer {
@@ -115,7 +117,8 @@ svg path {
     cursor: move;
 }
 .slider {
-    width: 400px;
+    width: 100%;
+    max-width: 400px;
     position: relative;
     border: 1px solid #d3dfe6;
 }
@@ -137,6 +140,7 @@ svg path {
   font-size: 5px;
   text-anchor: middle;
 }
+
 #element {
     position: relative;
     overflow: hidden;
@@ -145,4 +149,5 @@ svg path {
     height: 101px;
     width: 300px;
     max-width: 400px;
+    touch-action: none;
 }
