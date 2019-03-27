@@ -10,14 +10,8 @@ button:focus {
     outline: none;
 }
 
-header {
-  text-align: left;
-  padding: 5px;
-  font-size: 20px;
-}
 svg {
     width: 100%;
-    height: 100%;
 }
 svg polyline,
 svg line,
@@ -25,6 +19,10 @@ svg path {
     fill: none;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+.axis {
+    stroke: #b4c4cc;
 }
 
 .buttons {
@@ -54,7 +52,7 @@ svg path {
   -webkit-transition: fill .6s ease;
   -moz-transition: fill .6s ease;
   -o-transition: fill .6s ease;
-  transition: fill .6s ease;  
+  transition: fill .6s ease;
 }
 
 .circle__follow {
@@ -70,6 +68,29 @@ svg path {
     text-align: center;
 }
 
+.graph {
+  width: 100%;
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.header {
+  text-align: left;
+  padding: 5px;
+  font-size: 20px;
+}
+
+.mainsvg {
+ width: 100%;
+}
+
+.mainsvg__labels {
+  font-family: sans-serif;
+  font-size: 4px;
+  text-anchor: middle;
+  fill: #b4c4cc;
+}
+
 .ok {
   stroke-dasharray: 1000;
   stroke-dashoffset: 0;
@@ -79,43 +100,44 @@ svg path {
   stroke-dashoffset: 900
 }
 
-
 .point {
     stroke: gray;
     stroke-opacity: 0;
     stroke-linecap: butt;
 }
 
-.follow {
-    stroke: #3DC23F;
-}
-.unfollow {
-    stroke: #F34C44;
+.slider-container {
+  width: 100%;
+  max-width: 400px;
+  position: relative;
+  border: 1px solid #d3dfe6;
 }
 
-.axis {
-    stroke: #b4c4cc;
+.slider-container__fullgraph {
+  position: absolute;
+  width: 100%;
+  max-width: 400px;
+  height: 100px;
 }
-.fullgraph {
-    position: absolute;
-    width: 100%;
-    max-width: 400px;
-    height: 100px;
+.slider-container__slider {
+  position: relative;
+  overflow: hidden;
+  background: #b4c4cc;
+  opacity: 0.3;
+  height: 101px;
+  width: 75%;
+  max-width: 400px;
+  touch-action: none;
 }
-.resizer {
-    width: 10px;
-    height: 100%;
-    background: #678391;
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    cursor: move;
-}
-.slider {
-    width: 100%;
-    max-width: 400px;
-    position: relative;
-    border: 1px solid #d3dfe6;
+
+.slider-container__resizer {
+  width: 10px;
+  height: 100%;
+  background: #678391;
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  cursor: move;
 }
 
 .stripe {
@@ -123,6 +145,7 @@ svg path {
   stroke-width: 0.1;
   stroke-opacity: 1;
 }
+
 .tooltip {
   stroke: #b4c4cc;
   stroke-width: 0.1;
@@ -133,15 +156,4 @@ svg path {
   font-family: sans-serif;
   font-size: 5px;
   text-anchor: middle;
-}
-
-.element {
-    position: relative;
-    overflow: hidden;
-    background: #b4c4cc;
-    opacity: 0.3;
-    height: 101px;
-    width: 300px;
-    max-width: 400px;
-    touch-action: none;
 }
