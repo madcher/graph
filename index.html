@@ -1,10 +1,9 @@
-<!DOCTYPE html>
 <html>
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Graph beta</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Graph</title>
   <script src="script/babel.js"></script>
   <script crossorigin src="https://unpkg.com/react@16/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@16/umd/react-dom.production.min.js"></script>
@@ -20,11 +19,14 @@
     // Maxim Rameev 23-03-2019
     // graph for telegram chalenge
     // mobile support
-    // todo: make adaptive;
+    // todo: make full adaptive;
+    // todo: make tooltip and buttons separate components
 
     // init graph
     const fullGraphFollow = makePath(makeFullGraph(dataForGraph, 400), 1);
     const fullGraphUnfollow = makePath(makeFullGraph(dataForGraph, 400), 2);
+    // new data for second graph
+    var dataForGraph2 = JSON.parse(JSON.stringify( dataForGraph));
 
     // shift tooltip near borders
     function getTooltipX(x) {
@@ -37,7 +39,6 @@
       }
       return newX
     }
-
     // svg path for bottom graph
     function makeFullGraph(data, width) {
       let distance = width / data.length;
@@ -65,42 +66,39 @@
       return path;
     }
 
+    // graph component
     class Graph extends React.Component {
       constructor(props) {
         super(props);
         this.state = {
           // width of full graph, width of slider div, width of svg viewbox
-          path: this.getNewCoordinates(props.data, props.fullGraphWidth, props.sliderWidth, props.mainGraphWidth),
+          path: props.data,
           // show follow and unfollow graphs or not
           grap1show: true,
           grap2show: true,
           // width of slider div
-          width: props.sliderWidth
+          sliderWidth: props.sliderWidth
         };
-        // full graph width
-        this.fullWidth = props.fullGraphWidth;
-        this.visiblePointsNum = 0;
-        // main grath width
-        this.width = props.mainGraphWidth;
-        // width of slider div
+        // variables for save state while scrolling
         this.scrollWidth = props.sliderWidth;
-        this.path = this.getNewCoordinates(props.data, props.fullGraphWidth, props.sliderWidth, props.mainGraphWidth);
+        this.path = props.data;
+        // bind functions
         this.initResize = this.initResize.bind(this);
-        this.resize = this.resize.bind(this);
-        this.stopResize = this.stopResize.bind(this);
+        this.getNewCoordinates = this.getNewCoordinates.bind(this);
+        this.hideGraph = this.hideGraph.bind(this);
         this.hoverShow = this.hoverShow.bind(this);
         this.hoverHide = this.hoverHide.bind(this);
-        this.getNewCoordinates = this.getNewCoordinates.bind(this);
-        this.getLabels = this.getLabels.bind(this);
-        this.hideGraph = this.hideGraph.bind(this);
-        this.updateGraph = this.updateGraph.bind(this);
+        this.resize = this.resize.bind(this);
+        this.stopResize = this.stopResize.bind(this);
+        this.updateLabels = this.updateLabels.bind(this);
       }
 
       componentDidMount() {
         var resizer = this.refs.resizer;
         resizer.addEventListener('mousedown', this.initResize, false);
         resizer.addEventListener('touchstart', this.initResize, false);
-        this.getLabels();
+        //this.getLabels();
+        this.updateGraph(this.refs.scrollbox.getBoundingClientRect().width)
       }
 
       initResize(e) {
@@ -110,31 +108,43 @@
         window.addEventListener('touchend', this.stopResize, false);
       }
 
-
-      updateGraph(newWidth) {
-        let path = this.getNewCoordinates(this.state.path, this.fullWidth, newWidth, this.width);
-
-        // scrollig => direct update (setState is laggy)
-        // graph update
-        if (this.state.grap1show) {
-          this.refs.follow.setAttribute('d', makePath(path, 1));
+      // initial path for top graph
+      getNewCoordinates(data, distanse) {
+        // update grath from endpoint to start
+        let newPath = data;
+        newPath[data.length - 1].x = this.props.mainGraphWidth;
+        for (let i = newPath.length - 2; i >= 0; i--) {
+          newPath[i].x = newPath[i + 1].x - distanse;
         }
-        if (this.state.grap2show) {
-          this.refs.unfollow.setAttribute('d', makePath(path, 2));
-        }
-        // scroll box update
-        this.refs.scrollbox.style.width = newWidth + 'px';
+        return newPath;
+      }
 
-        // x-labels update
-        let labels = document.getElementsByClassName(this.props.labelsClass);
-        for (let j = 0; j < labels.length; j++) {
-          labels[j].innerHTML = '.'
-          labels[j].setAttribute('x', path[j].x)
+      hideGraph(e) {
+        const index = e.currentTarget.getAttribute('data');
+        const color = e.currentTarget.getAttribute('color');
+        if (index == 1) {
+          const grap1show = !this.state.grap1show;
+          this.refs[color].style.fill =  !this.state.grap1show ? color : this.props.background;
+          this.setState({ grap1show });
+          return;
         }
-        this.getLabels();
-        // update state
-        this.scrollWidth = newWidth;
-        this.path = path;
+        const grap2show = !this.state.grap2show;
+        this.refs[color].style.fill =  !this.state.grap2show ? color : this.props.background;
+        this.setState({ grap2show });
+      }
+
+      hoverShow(e) {
+        const index = e.target.getAttribute('data');
+        const path = this.state.path;
+        path[index].showtooltip = true;
+        this.setState({ path });
+      }
+
+      hoverHide(e) {
+        const index = e.target.getAttribute('data');
+        const path = this.state.path;
+        path[index].showtooltip = false;
+        this.setState({ path });
       }
 
       resize(e) {
@@ -164,15 +174,47 @@
         this.setState({ path, width });
       }
 
-      getLabels() {
+      updateGraph(scrollboxWidth) {
+        const scrollContainerWidth = this.refs.slidercontainer.getBoundingClientRect().width;
+
+        // visible part
+        const visiblePart = scrollContainerWidth - scrollboxWidth;
+        // koefficient = main svg width / currentVisible
+        const multiplier = this.props.mainGraphWidth / visiblePart > 0 ?
+          this.props.mainGraphWidth / visiblePart : 1000;
+        // initial distance between 2 points in graph
+        const initDist = this.props.fullGraphWidth / this.state.path.length;
+        // change initial distance with miltiplier
+        const distanse = initDist * multiplier;
+
+        // path update
+        let path = this.getNewCoordinates(this.state.path, distanse);
+        // graph update
+        if (this.state.grap1show) {
+          this.refs.follow.setAttribute('d', makePath(path, 1));
+        }
+        if (this.state.grap2show) {
+          this.refs.unfollow.setAttribute('d', makePath(path, 2));
+        }
+        // scroll box update
+        this.refs.scrollbox.style.width = scrollboxWidth + 'px';
+        this.updateLabels(path, distanse);
+        // save state
+        this.scrollWidth = scrollboxWidth;
+        this.path = path;
+      }
+
+      updateLabels(path, distanse) {
         let labels = document.getElementsByClassName(this.props.labelsClass);
         // distanse between points
-        const distanse = this.width / this.visiblePointsNum;
         let count = 0;
         // set label every 20 points
         for (let j = 0; j < labels.length; j++) {
+          // change position
+          labels[j].setAttribute('x', path[j].x)
           count += distanse;
           if (count >= 20) {
+            // change label
             labels[j].innerHTML = this.props.data[j].label;
             count = 0;
           } else {
@@ -182,275 +224,224 @@
         }
       }
 
-      // initial path for top graph
-      getNewCoordinates(data, fullWidth, scrollWidth, width) {
-        // visible part of graph
-        const pointsNumber = (fullWidth - (scrollWidth - 10));
-        // koefficient
-        const multiplier = pointsNumber / width > 0 ? pointsNumber / width : 0.001;
-
-        // initial distance between 2 points in graph
-        const initDist = fullWidth / data.length;
-        // change initial distance with miltiplier
-        const distanse = initDist / multiplier;
-
-        // visible elements
-        this.visiblePointsNum = width / distanse;
-
-        let newPath = data;
-        newPath[data.length - 1].x = width;
-        for (let i = newPath.length - 2; i >= 0; i--) {
-          newPath[i].x = newPath[i + 1].x - distanse;
-        }
-        return newPath;
-      }
-
-      hoverShow(e) {
-        const index = e.target.getAttribute('data');
-        const path = this.state.path;
-        path[index].showtooltip = true;
-        this.setState({ path });
-      }
-
-      hoverHide(e) {
-        const index = e.target.getAttribute('data');
-        const path = this.state.path;
-        path[index].showtooltip = false;
-        this.setState({ path });
-      }
-
-      hideGraph(e) {
-        const index = e.currentTarget.getAttribute('data');
-        const color = e.currentTarget.getAttribute('color');
-        if (index == 1) {
-          const grap1show = !this.state.grap1show;
-          this.refs[color].style.fill =  !this.state.grap1show ? color : this.props.background;
-          this.setState({ grap1show });
-          return;
-        }
-        const grap2show = !this.state.grap2show;
-        this.refs[color].style.fill =  !this.state.grap2show ? color : this.props.background;
-        this.setState({ grap2show });
-      }
-
       render() {
-        // todo: change all classes to BEM
         return (
           <div
+            className="graph"
             style={{
-              width: '100%',
-              maxWidth: '400px',
               background: this.props.background,
               color: this.props.color,
-              margin: '0 auto'
             }}
           >
-            <header>
+            <header className="header">
               Followers
             </header>
-            <svg
-              viewBox={`0 0 ${this.props.mainGraphWidth} ${this.props.mainGraphWidth + 10}`}
-              className="svg-1"
-              style={{background: this.props.background}}
+
+            <div className="mainsvg">
+              <svg
+                viewBox={`0 0 ${this.props.mainGraphWidth} ${this.props.graphHeight + 10}`}
+                style={{background: this.props.background}}
+              >
+                {
+                  // graph axis
+                  graphLabels.map((axes, index) => {
+                    return (
+                      <path
+                      strokeWidth="0.1"
+                      d={`M10,${axes.y} L${this.props.mainGraphWidth},${axes.y}`}
+                      className="axis"
+                      key={`M10,${axes.y} L${this.props.mainGraphWidth},${axes.y}`}
+                      />
+                    )
+                  })
+                }
+                {
+                  // graph labels
+                  this.state.path.map((label, index) => {
+                    // init logic for labels
+                    return (
+                      <text
+                        x={label.x}
+                        y={this.props.mainGraphWidth + 2}
+                        key={index}
+                        className={'mainsvg__labels ' + this.props.labelsClass}
+                      >
+                        I
+                      </text>
+                    )
+                  })
+                }
+                {
+                  this.state.grap1show &&
+                  <path
+                    strokeWidth="1"
+                    d={makePath(this.state.path, 1)}
+                    stroke={this.props.graphColor1}
+                    ref="follow"/>
+                }
+
+                {
+                  this.state.grap2show &&
+                    <path strokeWidth="1"
+                    d={makePath(this.state.path, 2)}
+                    stroke={this.props.graphColor2}
+                    ref="unfollow"/>
+                }
+                {
+                  // labels for graph axis
+                  graphLabels.map((label, index) => {
+                    return (
+                      <text
+                        x="5"
+                        y={label.y + 1}
+                        className="mainsvg__labels"
+                        key={`labels${index}`}
+                      >
+                        {label.label}
+                      </text>
+                    )
+                  })
+                }
+                {
+                  // tooltip
+                  this.state.path.map((tooltip, index) => {
+                    const tooltipX = getTooltipX(tooltip.x);
+                    // todo: make separate component
+                    return (
+                        tooltip.showtooltip == true &&
+                          <g key={"rect" + index}>
+                            <path
+                              strokeWidth="1"
+                              d={`M${tooltip.x},10 L${tooltip.x},${this.props.mainGraphWidth - 3}`}
+                              className="stripe"
+                            />
+                            <circle
+                              cx={tooltip.x}
+                              cy={tooltip.y1}
+                              r="1.5"
+                              stroke={this.props.graphColor1}
+                              strokeWidth="1"
+                              fill="white"
+                            />
+                            <circle
+                              cx={tooltip.x}
+                              cy={tooltip.y2}
+                              r="1.5"
+                              stroke={this.props.graphColor2}
+                              strokeWidth="1"
+                              fill="white"
+                            />
+                            <rect
+                              x={tooltipX - 13}
+                              y="5"
+                              rx="2"
+                              ry="2"
+                              height="20"
+                              width="26"
+                              fill={this.props.background}
+                              className="tooltip"
+                            />
+                            <text
+                              x={tooltipX}
+                              y="10"
+                              fontFamily="sans-serif"
+                              fontSize="4px"
+                              textAnchor="middle"
+                              fill={this.props.color}
+                            >
+                              {tooltip.label}
+                            </text>
+                            <text
+                              x={tooltipX - 5}
+                              y="17"
+                              fill={this.props.graphColor1}
+                              className = "tooltip-text"
+                            >
+                              {tooltip.inity1}
+                            </text>
+                            <text
+                              x={tooltipX + 5}
+                              y="17"
+                              className = "tooltip-text"
+                              fill={this.props.graphColor2}
+                            >
+                              {tooltip.inity2}
+                            </text>
+                            <text
+                              x={tooltipX - 6}
+                              y="22"
+                              textAnchor="middle"
+                              fontSize="4px"
+                              fill={this.props.graphColor1}
+                            >
+                              Joined
+                            </text>
+                            <text
+                              x={tooltipX + 6}
+                              y="22"
+                              textAnchor="middle"
+                              fontSize="4px"
+                              fill={this.props.graphColor2}
+                            >
+                              Left
+                            </text>
+                          </g>
+                    )
+                  })
+                }
+                {
+                  // containers for tooltips
+                  this.state.path.map((el, ind) => {
+                    return (
+                      <path
+                        strokeWidth="3" d={`M${el.x},0 L${el.x},${this.props.mainGraphWidth}`}
+                        key={ind}
+                        className="point"
+                        onMouseOver={this.hoverShow}
+                        onMouseOut={this.hoverHide}
+                        onTouchStart={this.hoverShow}
+                        onTouchEnd={this.hoverHide}
+                        data={ind}
+                      />
+                    );
+                  })
+                }
+              </svg>
+            </div>
+
+            <div
+              className="slider-container"
+              ref="slidercontainer"
             >
-              {
-                // graph axis
-                graphLabels.map((axes, index) => {
-                  return (
-                    <path
-                    strokeWidth="0.1"
-                    d={`M10,${axes.y} L${this.props.mainGraphWidth},${axes.y}`}
-                    className="axis"
-                    key={`M10,${axes.y} L${this.props.mainGraphWidth},${axes.y}`}
-                    />
-                  )
-                })
-              }
-
-              {
-                // graph labels
-                this.state.path.map((label, index) => {
-                  // init logic for labels
-                  return (
-                    <text
-                      x={label.x}
-                      y={this.props.mainGraphWidth + 2}
-                      fontFamily="sans-serif"
-                      fontSize="4px"
-                      textAnchor="middle"
-                      fill="#b4c4cc"
-                      key={index}
-                      className={this.props.labelsClass}
-                    >
-                      I
-                    </text>
-                  )
-                })
-              }
-
-              {
-                this.state.grap1show &&
-                <path strokeWidth="1" d={makePath(this.state.path, 1)} className="follow" ref="follow"/>
-              }
-
-              {
-                this.state.grap2show &&
-                  <path strokeWidth="1" d={makePath(this.state.path, 2)} className="unfollow" ref="unfollow"/>
-              }
-
-              {
-                // labels for graph axis
-                graphLabels.map((label, index) => {
-                  return (
-                    <text
-                      x="5"
-                      y={label.y + 1}
-                      fontFamily="sans-serif"
-                      fontSize="4px"
-                      textAnchor="middle"
-                      fill="#b4c4cc"
-                      key={`labels${index}`}
-                    >
-                      {label.label}
-                    </text>
-                  )
-                })
-              }
-              {
-                // tooltip
-                this.state.path.map((tooltip, index) => {
-                  const tooltipX = getTooltipX(tooltip.x);
-                  // todo: make separate component
-                  return (
-                      tooltip.showtooltip == true &&
-                        <g key={"rect" + index}>
-                          <path
-                            strokeWidth="1"
-                            d={`M${tooltip.x},10 L${tooltip.x},${this.props.mainGraphWidth - 3}`}
-                            className="stripe"
-                          />
-                          <circle
-                            cx={tooltip.x}
-                            cy={tooltip.y1}
-                            r="1.5"
-                            stroke="#3DC23F"
-                            strokeWidth="1"
-                            fill="white"
-                          />
-                          <circle
-                            cx={tooltip.x}
-                            cy={tooltip.y2}
-                            r="1.5"
-                            stroke="#F34C44"
-                            strokeWidth="1"
-                            fill="white"
-                          />
-                          <rect
-                            x={tooltipX - 13}
-                            y="5"
-                            rx="2"
-                            ry="2"
-                            height="20"
-                            width="26"
-                            fill={this.props.background}
-                            className="tooltip"
-                          />
-                          <text
-                            x={tooltipX}
-                            y="10"
-                            fontFamily="sans-serif"
-                            fontSize="4px"
-                            textAnchor="middle"
-                            fill={this.props.color}
-                          >
-                            {tooltip.label}
-                          </text>
-                          <text
-                            x={tooltipX - 5}
-                            y="17"
-                            fill="#3DC23F"
-                            className = "tooltip-text"
-                          >
-                            {tooltip.inity1}
-                          </text>
-                          <text
-                            x={tooltipX + 5}
-                            y="17"
-                            className = "tooltip-text"
-                            fill="#F34C44"
-                          >
-                            {tooltip.inity2}
-                          </text>
-                          <text
-                            x={tooltipX - 6}
-                            y="22"
-                            textAnchor="middle"
-                            fontSize="4px"
-                            fill="#3DC23F"
-                          >
-                            Joined
-                          </text>
-                          <text
-                            x={tooltipX + 6}
-                            y="22"
-                            textAnchor="middle"
-                            fontSize="4px"
-                            fill="#F34C44"
-                          >
-                            Left
-                          </text>
-                        </g>
-                  )
-                })
-              }
-              {
-                // containers for tooltips
-                this.state.path.map((el, ind) => {
-                  return (
-                    <path
-                      strokeWidth="3" d={`M${el.x},0 L${el.x},${this.props.mainGraphWidth}`}
-                      key={ind}
-                      className="point"
-                      onMouseOver={this.hoverShow}
-                      onMouseOut={this.hoverHide}
-                      onTouchStart={this.hoverShow}
-                      onTouchEnd={this.hoverHide}
-                      data={ind}
-                    />
-                  );
-                })
-              }
-            </svg>
-            <div className="slider" id="slider">
-              <div className="fullgraph">
+              <div className="slider-container__fullgraph">
                 <svg
-                  viewBox={`0 0 ${this.props.fullGraphWidth} ${this.props.mainGraphWidth}`}
-                  className="svg-1"
+                  viewBox={`0 0 ${this.props.fullGraphWidth} ${this.props.graphHeight}`}
                   style={{background: this.props.background}}
                 >
-                <path
-                  strokeWidth="2"
-                  d={this.props.fullGraphFollow}
-                  className="follow"
-                />
-                <path
-                  strokeWidth="2"
-                  d={this.props.fullGraphUnfollow}
-                  className="unfollow"
-                />
+                  <path
+                    stroke={this.props.graphColor1}
+                    strokeWidth="2"
+                    d={this.props.fullGraphFollow}
+                  />
+                  <path
+                    stroke={this.props.graphColor2}
+                    strokeWidth="2"
+                    d={this.props.fullGraphUnfollow}
+                  />
                 </svg>
               </div>
-              <div ref="scrollbox" className="element" style={{width: this.state.width + 'px'}}>
-                <div className="resizer" ref="resizer">
+              <div ref="scrollbox" className="slider-container__slider" style={{width: this.state.sliderWidth + 'px'}}>
+                <div className="slider-container__resizer" ref="resizer">
                 </div>
               </div>
             </div>
+
             <div className="buttons">
               <button
                 className = "buttons__btn"
                 onClick={this.hideGraph}
                 data="1"
-                color="#28a745"
+                color={this.props.graphColor1}
                 style={{ color: this.props.color, background: this.props.background }}
               >
               <svg
@@ -463,7 +454,7 @@
                 width="30px" height="30px"
                 style={{background: this.props.background}}
               >
-                <circle className="ok circle circle__follow" stroke="#28a745" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref="#28a745" fill="#28a745" />
+                <circle className="ok circle circle__follow" stroke={this.props.graphColor1} strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref={this.props.graphColor1} fill={this.props.graphColor1} />
                 <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15 "/>
               </svg>
 
@@ -473,7 +464,7 @@
                 className="buttons__btn"
                 onClick={this.hideGraph}
                 data="2"
-                color="#F34C44"
+                color={this.props.graphColor2}
                 style={{ color: this.props.color, background: this.props.background }}
               >
                 <svg
@@ -487,7 +478,7 @@
                   height="30px"
                   style={{background: this.props.background}}
                 >
-                  <circle className="ok circle circle__unfollow" stroke="#F34C44" strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref="#F34C44" fill="#F34C44"/>
+                  <circle className="ok circle circle__unfollow" stroke={this.props.graphColor2} strokeWidth="1" strokeMiterlimit="10" cx="16" cy="16" r="12" ref={this.props.graphColor2} fill={this.props.graphColor2}/>
                   <polyline className="ok check" fill="none" stroke="white" strokeWidth="2" strokeMiterlimit="10" points="23,12 15,20 10,15" />
                 </svg>
                 Left
@@ -498,42 +489,44 @@
       }
     }
 
-// new data for second graph
-var dataForGraph2 = JSON.parse(JSON.stringify( dataForGraph));
-
-const App = (
-    <div>
-      <div style={{ paddingBottom: "20px"}}>
-        <Graph
-          data={dataForGraph}
-          fullGraphFollow = {fullGraphFollow}
-          fullGraphUnfollow = {fullGraphUnfollow}
-          graphLabels = {graphLabels}
-          fullGraphWidth = {400}
-          mainGraphWidth = {100}
-          sliderWidth = {300}
-          color="black"
-          background="white"
-          labelsClass="textLabels"
-        />
-      </div>
-      <div style={{ background: "#2d3c52", width: "100%", paddingTop: "20px", paddingBottom: "20px"}}>
-        <Graph
-          data={dataForGraph2}
-          fullGraphFollow = {fullGraphFollow}
-          fullGraphUnfollow = {fullGraphUnfollow}
-          graphLabels = {graphLabels}
-          fullGraphWidth = {400}
-          mainGraphWidth = {100}
-          sliderWidth = {300}
-          color="white"
-          background="#2d3c52"
-          labelsClass="textLabels2"
-        />
-      </div>
-    </div>
-);
-
+    const App = (
+        <div>
+          <div style={{ paddingBottom: "20px"}}>
+            <Graph
+              data={dataForGraph}
+              fullGraphFollow={fullGraphFollow}
+              fullGraphUnfollow={fullGraphUnfollow}
+              graphLabels={graphLabels}
+              fullGraphWidth={400}
+              mainGraphWidth={100}
+              graphHeight={100}
+              sliderWidth={300}
+              graphColor1="#3DC23F"
+              graphColor2="#F34C44"
+              color="black"
+              background="white"
+              labelsClass="textLabels"
+            />
+          </div>
+          <div style={{ background: "#2d3c52", width: "100%", paddingTop: "20px", paddingBottom: "20px"}}>
+            <Graph
+              data={dataForGraph2}
+              fullGraphFollow = {fullGraphFollow}
+              fullGraphUnfollow = {fullGraphUnfollow}
+              graphLabels = {graphLabels}
+              fullGraphWidth = {400}
+              mainGraphWidth = {100}
+              graphHeight={100}
+              sliderWidth={300}
+              graphColor1="#3DC23F"
+              graphColor2="#F34C44"
+              color="white"
+              background="#2d3c52"
+              labelsClass="textLabels2"
+            />
+          </div>
+        </div>
+    );
     ReactDOM.render(App, document.getElementById('container'));
   </script>
 
